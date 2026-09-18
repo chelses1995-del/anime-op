@@ -53,14 +53,35 @@
                 const response = await fetch(SHEET_CSV_URL);
                 const data = await response.text();
                 
-                // Парсимо CSV формат з Google Таблиці
-                const rows = data.split('\n').slice(1); // Пропускаємо шапку
-                allOpenings = rows.map(row => {
-                    // Простий парсер CSV (враховуємо можливі коми)
-                    const cols = row.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || row.split(',');
-                    // Очищуємо лапки якщо є
-                    const clean = (val) => val ? val.replace(/^"|"$/g, '').trim() : '';
+                // Надійніший парсер рядків CSV (враховує лапки Google Таблиць)
+                const rows = [];
+                let row = [''];
+                let insideQuotes = false;
+                
+                for (let i = 0; i < data.length; i++) {
+                    let char = data[i];
+                    let nextChar = data[i + 1];
+                    
+                    if (char === '"' && insideQuotes && nextChar === '"') {
+                        row[row.length - 1] += '"';
+                        i++;
+                    } else if (char === '"') {
+                        insideQuotes = !insideQuotes;
+                    } else if (char === ',' && !insideQuotes) {
+                        row.push('');
+                    } else if ((char === '\r' || char === '\n') && !insideQuotes) {
+                        if (char === '\r' && nextChar === '\n') { i++; }
+                        rows.push(row);
+                        row = [''];
+                    } else {
+                        row[row.length - 1] += char;
+                    }
+                }
+                if (row.length > 1 || row[0] !== '') { rows.push(row); }
 
+                // Пропускаємо шапку і мапимо дані
+                allOpenings = rows.slice(1).map(cols => {
+                    const clean = (val) => val ? val.replace(/^"|"$/g, '').trim() : '';
                     return {
                         id: clean(cols[0]),
                         title: clean(cols[1]),
@@ -68,6 +89,15 @@
                         category: clean(cols[3]),
                         rank: clean(cols[4])
                     };
+                }).filter(item => item.title && item.url);
+
+                renderCards(allOpenings);
+                document.getElementById('loading').style.display = 'none';
+            } catch (error) {
+                console.error('Помилка завантаження:', error);
+                document.getElementById('loading').innerHTML = '❌ Помилка завантаження даних із таблиці.';
+            }
+        }
                 }).filter(item => item.title && item.url);
 
                 renderCards(allOpenings);
