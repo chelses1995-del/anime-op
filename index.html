@@ -1,0 +1,143 @@
+# anime-op<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Моя колекція аніме-опенінгів</title>
+    <!-- Підключаємо Tailwind CSS для стилізації -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #0f172a;
+            color: #f8fafc;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- Шапка сайту -->
+    <header class="border-b border-slate-800 bg-slate-900/50 backdrop-blur sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+            <h1 class="text-xl font-bold tracking-wider text-rose-500">🎬 ANIME OPENINGS VAULT</h1>
+            <nav class="space-x-4">
+                <button onclick="filterContent('all')" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 transition text-sm font-medium">Усі</button>
+                <button onclick="filterContent('top')" class="px-3 py-1.5 rounded-lg bg-rose-600/20 text-rose-400 hover:bg-rose-600/30 transition text-sm font-medium">🔥 Топ</button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Основний контент -->
+    <main class="flex-grow max-w-7xl mx-auto px-4 py-8 w-full">
+        <div id="loading" class="text-center py-20 text-slate-400">Завантаження опенінгів з таблиці...</div>
+        
+        <!-- Сітка для карток -->
+        <div id="grid-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Сюди скрипт автоматично закине картки -->
+        </div>
+    </main>
+
+    <!-- Підвал -->
+    <footer class="border-t border-slate-800 py-4 text-center text-xs text-slate-500">
+        Створено для душі та улюблених треків ✨
+    </footer>
+
+    <!-- Скрипт для завантаження даних -->
+    <script>
+        // ЗАМІНИ ЦЕ ПОСИЛАННЯ НА СВОЄ (інструкція нижче)
+        const SHEET_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQe_itcZPc7qbY4elbNTSzLG3IeBzgAYTUe7F6ztFv6RB-1EJv5Fl-lqjsTNqCFZioZh9TR45AvDb6h/pub?gid=0&single=true&output=csv';
+
+        let allOpenings = [];
+
+        async function loadOpenings() {
+            try {
+                const response = await fetch(SHEET_CSV_URL);
+                const data = await response.text();
+                
+                // Парсимо CSV формат з Google Таблиці
+                const rows = data.split('\n').slice(1); // Пропускаємо шапку
+                allOpenings = rows.map(row => {
+                    // Простий парсер CSV (враховуємо можливі коми)
+                    const cols = row.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g) || row.split(',');
+                    // Очищуємо лапки якщо є
+                    const clean = (val) => val ? val.replace(/^"|"$/g, '').trim() : '';
+
+                    return {
+                        id: clean(cols[0]),
+                        title: clean(cols[1]),
+                        url: clean(cols[2]),
+                        category: clean(cols[3]),
+                        rank: clean(cols[4])
+                    };
+                }).filter(item => item.title && item.url);
+
+                renderCards(allOpenings);
+                document.getElementById('loading').style.display = 'none';
+            } catch (error) {
+                console.error('Помилка завантаження:', error);
+                document.getElementById('loading').innerHTML = '❌ Помилка завантаження даних із таблиці.';
+            }
+        }
+
+        // Функція перетворення звичаїного посилання YouTube у код для iframe
+        function getEmbedUrl(url) {
+            if (!url) return '';
+            let videoId = '';
+            if (url.includes('youtu.be/')) {
+                videoId = url.split('youtu.be/')[1]?.split('?')[0];
+            } else if (url.includes('watch?v=')) {
+                videoId = url.split('watch?v=')[1]?.split('&')[0];
+            }
+            return videoId ? `https://www.youtube.com/embed/${videoId}` : '';
+        }
+
+        // Рендер карток на сторінці
+        function renderCards(items) {
+            const container = document.getElementById('grid-container');
+            container.innerHTML = '';
+
+            if (items.length === 0) {
+                container.innerHTML = '<div class="col-span-full text-center text-slate-500">Поки що тут порожньо. Додай записи в таблицю!</div>';
+                return;
+            }
+
+            items.forEach(item => {
+                const embedUrl = getEmbedUrl(item.url);
+                const card = document.createElement('div');
+                card.className = 'bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-lg flex flex-col justify-between hover:border-slate-700 transition';
+                
+                card.innerHTML = `
+                    <div>
+                        <div class="relative aspect-video bg-black">
+                            ${embedUrl ? `<iframe class="w-full h-full" src="${embedUrl}" title="${item.title}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>` : '<div class="flex items-center justify-center h-full text-xs text-red-400">Невірне посилання</div>'}
+                        </div>
+                        <div class="p-4">
+                            <div class="flex justify-between items-start gap-2 mb-2">
+                                <h3 class="font-semibold text-slate-100 text-base">${item.title}</h3>
+                                ${item.rank ? `<span class="bg-rose-500/10 text-rose-400 border border-rose-500/20 text-xs px-2 py-0.5 rounded-full font-bold">#${item.rank}</span>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="px-4 pb-4 pt-0 flex justify-between items-center text-xs text-slate-400">
+                        <span class="bg-slate-800 px-2.5 py-1 rounded-md text-slate-300">${item.category || 'Загальне'}</span>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // Фільтрація (Усі або тільки Топ)
+        function filterContent(type) {
+            if (type === 'top') {
+                const topItems = allOpenings.filter(item => item.rank !== '' && !isNaN(item.rank))
+                                            .sort((a, b) => Number(a.rank) - Number(b.rank));
+                renderCards(topItems);
+            } else {
+                renderCards(allOpenings);
+            }
+        }
+
+        // Запускаємо завантаження при відкритті сторінки
+        loadOpenings();
+    </script>
+</body>
+</html>
